@@ -1,8 +1,5 @@
 package com.ridebooking.enums;
 
 public enum RideStatus {
-	IDLE,
-	CREATED,
-	WITHDRAWN,
-	COMPLETED
+	IDLE, CREATED, WITHDRAWN, COMPLETED
 }

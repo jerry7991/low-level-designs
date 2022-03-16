@@ -1,24 +1,26 @@
 package com.ridebooking.service;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-
 import com.ridebooking.api.RiderActivity;
 import com.ridebooking.constants.Constant;
+import com.ridebooking.entity.Driver;
 import com.ridebooking.entity.Ride;
-import com.ridebooking.entity.Riders;
+import com.ridebooking.enums.DriverStatus;
 import com.ridebooking.enums.RideStatus;
 import com.ridebooking.exceptions.BadInputException;
+import com.ridebooking.exceptions.MaxSheetExceedException;
+import com.ridebooking.exceptions.ResourceNotFoundException;
 import com.ridebooking.exceptions.RiderIdConflictException;
+import com.ridebooking.repository.DriverRepository;
+import com.ridebooking.repository.RidersRepository;
 
 public class RiderActivityImpl implements RiderActivity {
 
-	private Riders riders;
+	private RidersRepository ridersRepository;
+	private DriverRepository driverRepository;
 
-	public RiderActivityImpl(String name) {
-		riders = new Riders(name);
+	public RiderActivityImpl() {
+		ridersRepository = RidersRepository.getInstance();
+		driverRepository = DriverRepository.getInstance();
 	}
 
 	@Override
@@ -34,88 +36,90 @@ public class RiderActivityImpl implements RiderActivity {
 	}
 
 	@Override
-	public void createRide(int id, int origin, int dest, int noOfSeats)
-			throws BadInputException, RiderIdConflictException {
+	public void createRide(String name, int id, int driverId, int origin, int dest, int noOfSeats)
+			throws BadInputException, RiderIdConflictException, MaxSheetExceedException, ResourceNotFoundException {
 
 		if (origin >= dest) {
 			throw new BadInputException("Origin is greater than dest. Can't create the ride");
 		}
-		if (riders.isRunningRide(id)) {
+		if (ridersRepository.isRunningRide(id)) {
 			throw new RiderIdConflictException("Given rider id already used!");
 		}
-		Ride ride = new Ride(id, origin, dest, noOfSeats, RideStatus.CREATED,
-				riders.getCompletedRides().getOrDefault(id, new ArrayList<>()).size() > 9);
-		riders.getAllRides().put(id, ride);
+
+		Driver driver = driverRepository.getDriverById(driverId);
+
+		if (driver == null || driver.getDriverStatus() == DriverStatus.NOT_AVAILABLE) {
+			throw new ResourceNotFoundException("Desired drive is not available/exist right now.");
+		}
+
+		if (driverRepository.getDriverById(driverId).getAvailableSheat() < noOfSeats) {
+			throw new MaxSheetExceedException("Given driver has not enough sheet.");
+		}
+
+		driver.setDriverStatus(DriverStatus.BOOKED);
+		driverRepository.updateSeatById(driverId, noOfSeats);
+		Ride ride = new Ride(name, id, driverId, origin, dest, noOfSeats, RideStatus.CREATED,
+				ridersRepository.isPriorityRider(id));
+		ridersRepository.addRiders(ride);
 	}
 
 	@Override
 	public void updateRide(int id, int origin, int dest, int noOfSeats)
-			throws RiderIdConflictException, BadInputException {
+			throws RiderIdConflictException, BadInputException, MaxSheetExceedException {
 
 		if (origin >= dest) {
 			throw new BadInputException("Origin is greater than dest. Can't create the ride");
 		}
 
-		if (riders.isCompletedRide(id)) {
+		if (ridersRepository.isCompletedRide(id)) {
 			throw new RiderIdConflictException("Given Id's ride has been completed.");
 		}
 
-		if (!riders.isRunningRide(id)) {
+		if (!ridersRepository.isRunningRide(id)) {
 			throw new RiderIdConflictException("Given rider id doesn't exist!");
 		}
 
-		Ride ride = riders.getAllRides().get(id);
+		Ride ride = ridersRepository.findRideById(id);
+		int availableSheat = driverRepository.getDriverById(ride.getDriverId()).getAvailableSheat();
+		if (availableSheat < noOfSeats) {
+			throw new MaxSheetExceedException("Given driver has not enough sheet.");
+		}
+		driverRepository.updateSeatById(ride.getDriverId(), noOfSeats - ride.getSeats());
 		ride.setOrigin(origin);
 		ride.setDest(dest);
 		ride.setSeats(noOfSeats);
-
 	}
 
 	@Override
 	public void withdrawRide(int id) throws BadInputException, RiderIdConflictException {
-		if (riders.isCompletedRide(id)) {
+		if (ridersRepository.isCompletedRide(id)) {
 			throw new BadInputException("Rides already completed.");
 		}
 
-		if (!riders.isRunningRide(id)) {
+		if (!ridersRepository.isRunningRide(id)) {
 			throw new RiderIdConflictException("Given rider id doesn't exist!");
 		}
 
-		riders.getAllRides().remove(id);
+		Ride ride = ridersRepository.getRiderById(id);
+		driverRepository.updateSeatById(ride.getDriverId(), -1 * ride.getSeats());
+		ridersRepository.deleteRideById(id);
 	}
 
 	@Override
 	public int closeRide(int id) throws BadInputException, RiderIdConflictException {
-		if (!riders.isRunningRide(id)) {
+		if (!ridersRepository.isRunningRide(id)) {
 			throw new RiderIdConflictException("Given rider id doesn't exist any active ride!");
 		}
-		int fare = calculateFare(riders.getAllRides().get(id));
-		List<Ride> completed = riders.getCompletedRides().get(id);
-		if (completed == null) {
-			completed = new ArrayList<>();
-		}
-		completed.add(new Ride(riders.getAllRides().get(id)));
-		riders.getCompletedRides().put(id, completed);
-		riders.getAllRides().remove(id);
+		Ride ride = ridersRepository.findRideById(id);
+		int fare = calculateFare(ride);
+		ridersRepository.markCompletedRide(ride);
+		driverRepository.updateSeatById(ride.getDriverId(), -1 * ride.getSeats());
 		return fare;
 	}
 
 	@Override
 	public void showAllActiveUser() {
-
-		System.out.println("------------------------------------");
-		System.out.println("\n ******* Active users **** \n");
-		for (Map.Entry<Integer, Ride> entry : riders.getAllRides().entrySet()) {
-			System.out.println("Id : " + entry.getKey() + " Details => " + entry.getValue());
-		}
-
-		System.out.println("\n ******* Completed Trip**** \n");
-		for (Entry<Integer, List<Ride>> entry : riders.getCompletedRides().entrySet()) {
-			System.out.println(" User Id : " + entry.getKey() + " Details => ");
-			entry.getValue().forEach(ride -> System.out.println(ride));
-		}
-
-		System.out.println("------------------------------------");
+		ridersRepository.showAllActiveUser();
 	}
 
 }

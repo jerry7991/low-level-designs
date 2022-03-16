@@ -2,19 +2,22 @@ package com.ridebooking.entity;
 
 import com.ridebooking.enums.RideStatus;
 
-public class Ride {
+public class Ride extends Person {
 
 	private int id;
 	private int origin;
+	private int driverId;
 	private int dest;
 	private int seats;
 	private RideStatus rideStatus;
 	private boolean priorityRiders;
 
-	public Ride(int id, int origin, int dest, int seats, RideStatus rideStatus, boolean priorityRiders) {
-		super();
+	public Ride(String name, int id, int driverId, int origin, int dest, int seats, RideStatus rideStatus,
+			boolean priorityRiders) {
+		super(name);
 		this.id = id;
 		this.origin = origin;
+		this.driverId = driverId;
 		this.dest = dest;
 		this.seats = seats;
 		this.rideStatus = rideStatus;
@@ -22,8 +25,9 @@ public class Ride {
 	}
 
 	public Ride(Ride ride) {
-		super();
+		super(ride.getName());
 		this.id = ride.id;
+		this.driverId = ride.getDriverId();
 		this.origin = ride.origin;
 		this.dest = ride.dest;
 		this.seats = ride.seats;
@@ -79,9 +83,19 @@ public class Ride {
 		this.priorityRiders = priorityRiders;
 	}
 
+	public int getDriverId() {
+		return driverId;
+	}
+
+	public void setDriverId(int driverId) {
+		this.driverId = driverId;
+	}
+
 	@Override
 	public String toString() {
-		return "Ride [id=" + id + ", origin=" + origin + ", dest=" + dest + ", seats=" + seats + ", rideStatus="
-				+ rideStatus + ", priorityRiders=" + priorityRiders + "]";
+		return "Ride [id=" + id + ", origin=" + origin + ", driverId=" + driverId + ", dest=" + dest + ", seats="
+				+ seats + ", rideStatus=" + rideStatus + ", priorityRiders=" + priorityRiders + ", getName()="
+				+ getName() + "]";
 	}
+
 }

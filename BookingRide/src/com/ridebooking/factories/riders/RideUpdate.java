@@ -1,11 +1,13 @@
-package com.ridebooking.factories;
+package com.ridebooking.factories.riders;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 
+import com.ridebooking.api.RideFactory;
 import com.ridebooking.api.RiderActivity;
 import com.ridebooking.constants.Constant;
 import com.ridebooking.exceptions.BadInputException;
+import com.ridebooking.exceptions.MaxSheetExceedException;
 import com.ridebooking.exceptions.RiderIdConflictException;
 
 public class RideUpdate implements RideFactory {
@@ -19,11 +21,12 @@ public class RideUpdate implements RideFactory {
 	@Override
 	public void execute(RiderActivity riderActivity) {
 		try {
-			System.out.println("********Give Details for update. *******");
+			System.out.println("********Give Details for update. (id/origin/dest/noOfSeat)***********");
 			String[] input = reader.readLine().split(" ");
 			riderActivity.updateRide(Integer.parseInt(input[0]), Integer.parseInt(input[1]), Integer.parseInt(input[2]),
 					Integer.parseInt(input[3]));
-		} catch (IOException | NumberFormatException | BadInputException | RiderIdConflictException e) {
+		} catch (IOException | NumberFormatException | BadInputException | RiderIdConflictException
+				| MaxSheetExceedException e) {
 			System.out.println("Error :: " + e.getMessage());
 		}
 	}
